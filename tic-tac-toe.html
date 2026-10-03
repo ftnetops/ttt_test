@@ -1,0 +1,439 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook Tic-Tac-Toe</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shantell+Sans:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  /* Layout: one narrow column on graph paper (a chalkboard in dark) — heading, turn line, board, tally, controls. */
+  :root {
+    --paper: #f6f9fd;
+    --grid: #d6e2f3;
+    --ink: #1b2742;
+    --muted: #56648a;
+    --x: #1d4ed0;
+    --o: #cf3327;
+    --panel: #ffffff;
+    --edge: #b9c8e2;
+    --display: "Shantell Sans", "Comic Sans MS", "Chalkboard SE", cursive;
+    --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #1c2a26; --grid: #263730; --ink: #edf2e8; --muted: #a3b8ad;
+      --x: #93d2ff; --o: #ffb09c; --panel: #23342e; --edge: #47604f;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #1c2a26; --grid: #263730; --ink: #edf2e8; --muted: #a3b8ad;
+    --x: #93d2ff; --o: #ffb09c; --panel: #23342e; --edge: #47604f;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.45;
+    padding-inline: 16px;
+    padding-block: 32px 48px;
+  }
+  main {
+    max-width: 380px;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 2.25rem;
+    line-height: 1.1;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 .x { color: var(--x); }
+  h1 .o { color: var(--o); }
+  #status {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 1.25rem;
+    margin: 0;
+    min-height: 1.45em;
+  }
+  #status[data-who="X"] { color: var(--x); }
+  #status[data-who="O"] { color: var(--o); }
+
+  .board {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+  }
+  .board > svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .rules path { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+  #strike { fill: none; stroke: var(--ink); stroke-width: 7; stroke-linecap: round; opacity: .85; }
+  .cell {
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 12%;
+    margin: 0;
+    cursor: pointer;
+    color: inherit;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+  }
+  .cell:disabled { cursor: default; }
+  .cell:focus-visible { outline: 3px solid var(--ink); outline-offset: -6px; }
+  .cell svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .cell path { fill: none; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+  .cell[data-mark="X"] path { stroke: var(--x); }
+  .cell[data-mark="O"] path { stroke: var(--o); }
+  .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .22s ease-out forwards; }
+  .draw.second { animation-delay: .14s; }
+  #strike.draw { animation-duration: .35s; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .draw { animation: none; stroke-dashoffset: 0; }
+  }
+
+  .tally {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 0;
+    padding: 12px 8px;
+    background: var(--panel);
+    border: 1.5px solid var(--edge);
+    border-radius: 6px;
+    text-align: center;
+  }
+  .tally div { min-width: 0; }
+  .tally dt { font-size: .8125rem; color: var(--muted); }
+  .tally dd {
+    margin: 0;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.75rem;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+  .tally .tx dd { color: var(--x); }
+  .tally .to dd { color: var(--o); }
+
+  .controls { display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  legend { padding: 0; font-size: .8125rem; color: var(--muted); margin-bottom: 4px; }
+  .seg {
+    display: inline-flex;
+    border: 1.5px solid var(--edge);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--panel);
+  }
+  .seg label { position: relative; cursor: pointer; }
+  .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .seg span { display: block; padding: 8px 14px; font-size: .9375rem; }
+  .seg input:checked + span { background: var(--ink); color: var(--paper); font-weight: 700; }
+  .seg input:focus-visible + span { outline: 3px solid var(--x); outline-offset: -3px; }
+  button.primary, button.quiet {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 10px 18px;
+  }
+  button.primary {
+    background: var(--ink);
+    color: var(--paper);
+    border: 1.5px solid var(--ink);
+    font-weight: 700;
+  }
+  button.quiet {
+    background: none;
+    color: var(--muted);
+    border: 1.5px solid transparent;
+    text-decoration: underline;
+    padding-inline: 8px;
+  }
+  button.primary:focus-visible, button.quiet:focus-visible { outline: 3px solid var(--x); outline-offset: 2px; }
+</style>
+
+<main>
+  <h1>Tic<span class="x">-</span>Tac<span class="o">-</span>Toe</h1>
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <div class="board" id="board" role="group" aria-label="Game board">
+    <svg viewBox="0 0 300 300" aria-hidden="true">
+      <g class="rules">
+        <path d="M100 8 C98 90 103 200 100 292"/>
+        <path d="M200 9 C203 100 197 210 201 291"/>
+        <path d="M8 100 C90 103 210 97 292 101"/>
+        <path d="M9 200 C100 197 200 203 291 199"/>
+      </g>
+      <path id="strike" pathLength="1" hidden d=""/>
+    </svg>
+  </div>
+
+  <dl class="tally">
+    <div class="tx"><dt id="labelX">You (X)</dt><dd id="scoreX">0</dd></div>
+    <div><dt>Draws</dt><dd id="scoreD">0</dd></div>
+    <div class="to"><dt id="labelO">Computer (O)</dt><dd id="scoreO">0</dd></div>
+  </dl>
+
+  <div class="controls">
+    <div class="row">
+      <fieldset>
+        <legend>Opponent</legend>
+        <div class="seg">
+          <label><input type="radio" name="mode" id="mode-cpu" value="cpu" checked><span>Computer</span></label>
+          <label><input type="radio" name="mode" id="mode-two" value="two"><span>Two players</span></label>
+        </div>
+      </fieldset>
+      <fieldset id="levelSet">
+        <legend>Computer skill</legend>
+        <div class="seg">
+          <label><input type="radio" name="level" id="level-easy" value="easy"><span>Easy</span></label>
+          <label><input type="radio" name="level" id="level-hard" value="hard" checked><span>Unbeatable</span></label>
+        </div>
+      </fieldset>
+    </div>
+    <div class="row">
+      <button type="button" class="primary" id="newRound">New round</button>
+      <button type="button" class="quiet" id="resetScores">Reset scores</button>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  var MARKS = {
+    X: '<svg viewBox="0 0 100 100" aria-hidden="true"><path class="draw" pathLength="1" d="M20 22 C38 40 62 60 80 79"/><path class="draw second" pathLength="1" d="M79 20 C60 40 40 58 21 80"/></svg>',
+    O: '<svg viewBox="0 0 100 100" aria-hidden="true"><path class="draw" pathLength="1" d="M52 17 C74 16 86 34 84 52 C82 72 66 85 48 83 C29 81 15 66 17 47 C19 29 34 17 56 19"/></svg>'
+  };
+  var PLACES = ['top left','top middle','top right','middle left','center','middle right','bottom left','bottom middle','bottom right'];
+
+  var state = {
+    board: [null,null,null,null,null,null,null,null,null],
+    turn: 'X', starter: 'X', mode: 'cpu', level: 'hard',
+    score: { X: 0, O: 0, D: 0 }, over: false
+  };
+  var thinking = 0;
+
+  var boardEl = document.getElementById('board');
+  var statusEl = document.getElementById('status');
+  var strike = document.getElementById('strike');
+  var cells = [];
+  for (var i = 0; i < 9; i++) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cell';
+    b.id = 'cell-' + i;
+    b.dataset.i = i;
+    b.dataset.mark = '';
+    boardEl.insertBefore(b, boardEl.querySelector('svg'));
+    cells.push(b);
+  }
+
+  function winner(b) {
+    for (var k = 0; k < LINES.length; k++) {
+      var l = LINES[k];
+      if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return { p: b[l[0]], line: l };
+    }
+    return null;
+  }
+  function full(b) { return b.every(Boolean); }
+
+  // Score from O's side: O is the computer.
+  function minimax(b, turn, depth) {
+    var w = winner(b);
+    if (w) return w.p === 'O' ? 10 - depth : depth - 10;
+    if (full(b)) return 0;
+    var best = turn === 'O' ? -99 : 99;
+    for (var i = 0; i < 9; i++) {
+      if (b[i]) continue;
+      b[i] = turn;
+      var s = minimax(b, turn === 'O' ? 'X' : 'O', depth + 1);
+      b[i] = null;
+      best = turn === 'O' ? Math.max(best, s) : Math.min(best, s);
+    }
+    return best;
+  }
+  function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+  function computerChoice() {
+    var b = state.board.slice();
+    var open = [];
+    for (var i = 0; i < 9; i++) if (!b[i]) open.push(i);
+    if (state.level === 'easy' && Math.random() < 0.55) return pick(open);
+    if (open.length === 9) return pick([0, 2, 4, 6, 8]);
+    var bestScore = -99, best = [];
+    open.forEach(function (i) {
+      b[i] = 'O';
+      var s = minimax(b, 'X', 1);
+      b[i] = null;
+      if (s > bestScore) { bestScore = s; best = [i]; }
+      else if (s === bestScore) best.push(i);
+    });
+    return pick(best);
+  }
+
+  function name(p) {
+    if (state.mode === 'cpu') return p === 'X' ? 'You' : 'Computer';
+    return 'Player ' + p;
+  }
+
+  function render() {
+    var w = winner(state.board);
+    var cpuTurn = state.mode === 'cpu' && state.turn === 'O' && !state.over;
+    cells.forEach(function (c, i) {
+      var m = state.board[i] || '';
+      if (c.dataset.mark !== m) {
+        c.dataset.mark = m;
+        c.innerHTML = m ? MARKS[m] : '';
+      }
+      c.disabled = !!m || state.over || cpuTurn;
+      c.setAttribute('aria-label', PLACES[i] + (m ? ', ' + m : ', empty'));
+    });
+
+    if (w) {
+      var a = w.line[0], z = w.line[2];
+      var ax = (a % 3) * 100 + 50, ay = Math.floor(a / 3) * 100 + 50;
+      var zx = (z % 3) * 100 + 50, zy = Math.floor(z / 3) * 100 + 50;
+      var dx = Math.sign(zx - ax) * 32, dy = Math.sign(zy - ay) * 32;
+      var d = 'M' + (ax - dx) + ' ' + (ay - dy) + ' L' + (zx + dx) + ' ' + (zy + dy);
+      if (strike.getAttribute('d') !== d) {
+        strike.setAttribute('d', d);
+        strike.classList.remove('draw');
+        void strike.getBoundingClientRect();
+        strike.classList.add('draw');
+      }
+      strike.style.stroke = 'var(--' + w.p.toLowerCase() + ')';
+      strike.hidden = false;
+    } else {
+      strike.hidden = true;
+      strike.setAttribute('d', '');
+    }
+
+    var text, who = '';
+    if (w) {
+      who = w.p;
+      text = state.mode === 'cpu' ? (w.p === 'X' ? 'You win!' : 'Computer wins.') : 'Player ' + w.p + ' wins!';
+    } else if (state.over) {
+      text = 'Draw. Nobody gets the square.';
+    } else {
+      who = state.turn;
+      text = state.mode === 'cpu'
+        ? (state.turn === 'X' ? 'Your turn. You are X.' : 'Computer is thinking…')
+        : 'Player ' + state.turn + ' to play.';
+    }
+    statusEl.textContent = text;
+    statusEl.dataset.who = who;
+
+    document.getElementById('labelX').textContent = name('X') + ' (X)';
+    document.getElementById('labelO').textContent = name('O') + ' (O)';
+    document.getElementById('scoreX').textContent = state.score.X;
+    document.getElementById('scoreO').textContent = state.score.O;
+    document.getElementById('scoreD').textContent = state.score.D;
+    document.getElementById('levelSet').hidden = state.mode !== 'cpu';
+    document.getElementById('mode-' + state.mode).checked = true;
+    document.getElementById('level-' + state.level).checked = true;
+  }
+
+  function place(i) {
+    state.board[i] = state.turn;
+    var w = winner(state.board);
+    if (w) { state.over = true; state.score[w.p]++; }
+    else if (full(state.board)) { state.over = true; state.score.D++; }
+    else state.turn = state.turn === 'X' ? 'O' : 'X';
+    render();
+    queueComputer();
+  }
+
+  function queueComputer() {
+    var token = ++thinking;
+    if (state.mode !== 'cpu' || state.turn !== 'O' || state.over) return;
+    setTimeout(function () {
+      if (token !== thinking || state.over || state.turn !== 'O' || state.mode !== 'cpu') return;
+      place(computerChoice());
+    }, 450);
+  }
+
+  function newRound(keepStarter) {
+    if (!keepStarter) state.starter = state.starter === 'X' ? 'O' : 'X';
+    state.board = [null,null,null,null,null,null,null,null,null];
+    state.turn = state.starter;
+    state.over = false;
+    render();
+    queueComputer();
+  }
+
+  function remember() {
+    try { localStorage.setItem('ttt-prefs', JSON.stringify({ mode: state.mode, level: state.level })); } catch (e) {}
+  }
+
+  boardEl.addEventListener('click', function (e) {
+    var c = e.target.closest('.cell');
+    if (!c || c.disabled) return;
+    var i = +c.dataset.i;
+    if (state.over || state.board[i]) return;
+    if (state.mode === 'cpu' && state.turn === 'O') return;
+    place(i);
+  });
+  document.getElementById('newRound').addEventListener('click', function () { newRound(false); });
+  document.getElementById('resetScores').addEventListener('click', function () {
+    state.score = { X: 0, O: 0, D: 0 };
+    render();
+  });
+  document.querySelectorAll('input[name="mode"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      state.mode = r.value;
+      state.score = { X: 0, O: 0, D: 0 };
+      state.starter = 'X';
+      remember();
+      newRound(true);
+    });
+  });
+  document.querySelectorAll('input[name="level"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      state.level = r.value;
+      remember();
+      render();
+    });
+  });
+
+  function start(saved) {
+    try {
+      var p = JSON.parse(localStorage.getItem('ttt-prefs') || 'null');
+      if (p && (p.mode === 'cpu' || p.mode === 'two')) state.mode = p.mode;
+      if (p && (p.level === 'easy' || p.level === 'hard')) state.level = p.level;
+    } catch (e) {}
+    if (saved && Array.isArray(saved.board) && saved.board.length === 9 && saved.score) {
+      state = saved;
+    }
+    render();
+    queueComputer();
+  }
+
+  var hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(function () { return JSON.parse(JSON.stringify(state)); });
+  if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+</script>
